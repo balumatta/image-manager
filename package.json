@@ -1,0 +1,19 @@
+{
+  "name": "image-manager-service",
+  "version": "1.0.0",
+  "description": "Image management service with S3 and DynamoDB",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "deploy:local": "serverless deploy --stage local",
+    "remove": "serverless remove",
+    "test": "python test_local.py"
+  },
+  "devDependencies": {
+    "serverless": "^3.40.0",
+    "serverless-localstack": "^1.1.2",
+    "serverless-python-requirements": "^6.0.0"
+  },
+  "author": "Developer",
+  "license": "MIT"
+}

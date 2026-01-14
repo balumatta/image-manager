@@ -1,0 +1,150 @@
+service: image-manager-service
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.9
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  environment:
+    IMAGES_TABLE: ${self:service}-images-${self:provider.stage}
+    IMAGES_BUCKET: ${self:service}-images-${self:provider.stage}
+    STAGE: ${self:provider.stage}
+  # Exclude unnecessary files from deployment package
+  patterns:
+    - '!tests/**'
+    - '!.git/**'
+    - '!.pytest_cache/**'
+    - '!.coverage'
+    - '!.DS_Store'
+    - '!*.md'
+    - '!.gitignore'
+    - '!docker-compose.yml'
+    - '!infrastructure/**'
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.IMAGES_TABLE}"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.IMAGES_TABLE}/index/*"
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+        - s3:DeleteObject
+        - s3:PutObjectAcl
+      Resource:
+        - "arn:aws:s3:::${self:provider.environment.IMAGES_BUCKET}/*"
+    - Effect: Allow
+      Action:
+        - s3:ListBucket
+      Resource:
+        - "arn:aws:s3:::${self:provider.environment.IMAGES_BUCKET}"
+
+functions:
+  uploadImage:
+    handler: src.handlers.upload_image.lambda_handler
+    events:
+      - http:
+          path: images
+          method: post
+          cors: true
+
+  listImages:
+    handler: src.handlers.list_images.lambda_handler
+    events:
+      - http:
+          path: images
+          method: get
+          cors: true
+
+  getImage:
+    handler: src.handlers.get_image.lambda_handler
+    events:
+      - http:
+          path: images/{image_id}
+          method: get
+          cors: true
+
+  deleteImage:
+    handler: src.handlers.delete_image.lambda_handler
+    events:
+      - http:
+          path: images/{image_id}
+          method: delete
+          cors: true
+
+resources:
+  Resources:
+    ImagesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.IMAGES_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: image_id
+            AttributeType: S
+          - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: upload_timestamp
+            AttributeType: N
+        KeySchema:
+          - AttributeName: image_id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: UserIndex
+            KeySchema:
+              - AttributeName: user_id
+                KeyType: HASH
+              - AttributeName: upload_timestamp
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+
+    ImagesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.IMAGES_BUCKET}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - '*'
+              AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
+
+plugins:
+  - serverless-python-requirements
+  - serverless-localstack
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
+    slim: true
+    strip: false
+    noDeps:
+      - boto3
+      - botocore
+    useStaticCache: false
+    useDownloadCache: false
+  localstack:
+    stages:
+      - local
+    host: http://localhost
+    edgePort: 4566
+    autostart: true
