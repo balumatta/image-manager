@@ -205,3 +205,5 @@ apps/agents/output/
 package-lock.json
 
 node_modules/
+
+.requirements.zip

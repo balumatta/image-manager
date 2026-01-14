@@ -10,7 +10,7 @@ class DynamoDBService:
         self.table_name = table_name
 
         if not self.table_name:
-            raise ValueError("IMAGES_TABLE environment variable not set")
+            raise ValueError("Table name is not mentioned")
 
     def save_image_metadata(self, metadata: ImageMetadata) -> Dict[str, Any]:
         """

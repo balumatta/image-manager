@@ -8,9 +8,13 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: us-east-1
   environment:
-    IMAGES_TABLE: ${self:service}-images-${self:provider.stage}
-    IMAGES_BUCKET: ${self:service}-images-${self:provider.stage}
     STAGE: ${self:provider.stage}
+  # Use S3 for deployment artifacts when package is large
+  deploymentBucket:
+    name: ${self:service}-deployments-${self:provider.stage}
+    blockPublicAccess: true
+    versioning: true
+    serverSideEncryption: AES256
   # Exclude unnecessary files from deployment package
   patterns:
     - '!tests/**'
@@ -32,8 +36,8 @@ provider:
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
       Resource:
-        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.IMAGES_TABLE}"
-        - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.IMAGES_TABLE}/index/*"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/montycloud-images"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/montycloud-images/index/*"
     - Effect: Allow
       Action:
         - s3:GetObject
@@ -41,12 +45,12 @@ provider:
         - s3:DeleteObject
         - s3:PutObjectAcl
       Resource:
-        - "arn:aws:s3:::${self:provider.environment.IMAGES_BUCKET}/*"
+        - "arn:aws:s3:::montycloud-images/*"
     - Effect: Allow
       Action:
         - s3:ListBucket
       Resource:
-        - "arn:aws:s3:::${self:provider.environment.IMAGES_BUCKET}"
+        - "arn:aws:s3:::montycloud-images"
 
 functions:
   uploadImage:
@@ -83,10 +87,27 @@ functions:
 
 resources:
   Resources:
+    # Deployment bucket for Lambda artifacts
+    DeploymentBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:service}-deployments-${self:provider.stage}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        VersioningConfiguration:
+          Status: Enabled
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+
     ImagesTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:provider.environment.IMAGES_TABLE}
+        TableName: montycloud-images
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
           - AttributeName: image_id
@@ -113,7 +134,7 @@ resources:
     ImagesBucket:
       Type: AWS::S3::Bucket
       Properties:
-        BucketName: ${self:provider.environment.IMAGES_BUCKET}
+        BucketName: montycloud-images
         CorsConfiguration:
           CorsRules:
             - AllowedOrigins:
@@ -142,9 +163,15 @@ custom:
       - botocore
     useStaticCache: false
     useDownloadCache: false
+    # Force upload to S3 for large packages
+    zip: true
+    # Remove additional unnecessary files
+    invalidateCaches: true
   localstack:
     stages:
       - local
     host: http://localhost
     edgePort: 4566
     autostart: true
+    # Use deployment bucket for LocalStack too
+    deploymentBucket: ${self:service}-deployments-${self:provider.stage}

@@ -53,11 +53,14 @@ serverless deploy --stage local
 ### 4. Create S3 Bucket
 
 ```bash
+# Create the bucket for storing images
 aws --endpoint-url http://localhost:4566 s3 mb s3://montycloud-images
+
+# Create the bucket for storing artifacts for local testing
+aws --endpoint-url http://localhost:4566 s3 mb s3://image-manager-service-deployments-local
 
 # To confirm if S3 bucket is created then execute the below command. It will give output with bucket names
 aws --endpoint-url http://localhost:4566 s3 ls
-
 ```
 
 ### 4. Test the APIs
