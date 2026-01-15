@@ -38,19 +38,7 @@ docker-compose up -d
 curl http://localhost:4566/_localstack/health
 ```
 
-### 3. Deploy to LocalStack
-
-```bash
-# Install Serverless Framework globally (if not installed)
-npm i -D serverless@3
-
-# Deploy to LocalStack
-serverless deploy --stage local
-
-# Note the API Gateway URL from the output
-```
-
-### 4. Create S3 Bucket
+### 3. Create S3 Bucket
 
 ```bash
 # Create the bucket for storing images
@@ -61,6 +49,18 @@ aws --endpoint-url http://localhost:4566 s3 mb s3://image-manager-service-deploy
 
 # To confirm if S3 bucket is created then execute the below command. It will give output with bucket names
 aws --endpoint-url http://localhost:4566 s3 ls
+```
+
+### 4. Deploy to LocalStack
+
+```bash
+# Install Serverless Framework globally (if not installed)
+npm i -D serverless@3
+
+# Deploy to LocalStack
+npx serverless deploy --stage local
+
+# Note the API Gateway URL from the output
 ```
 
 ### 4. Test the APIs
@@ -149,67 +149,20 @@ curl -X DELETE http://localhost:4566/restapis/{api-id}/local/_user_request_/imag
 - **Query Parameters**:
   - `force` (optional): Force delete even if S3 deletion fails
 
-## Environment Variables
-
-The following environment variables are automatically set by Serverless:
-- `IMAGES_BUCKET`: S3 bucket name for storing images
-- `IMAGES_TABLE`: DynamoDB table name for metadata
 
 ## File Structure
 ```
-image-manager-service/
+image-manager/
 ├── src/
-│   ├── handlers/          # Lambda function handlers
-│   ├── services/          # AWS service integrations
+│   ├── handlers/         # Lambda function handlers
+│   ├── helpers/aws       # AWS service integrations
 │   ├── models/           # Data models
 │   └── utils/            # Utility functions
-├── tests/
-│   ├── unit/             # Unit tests
-│   └── fixtures/         # Test data
-├── infrastructure/
-│   └── localstack/       # LocalStack configuration
+│   └── constants/        # Constants
 ├── serverless.yml        # Serverless Framework configuration
 └── test_local.py         # Local testing script
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Import Errors**
-   ```bash
-   # Ensure you're in the project root and Python path is correct
-   export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
-   ```
-
-2. **LocalStack Connection Issues**
-   ```bash
-   # Check LocalStack status
-   docker ps | grep localstack
-   curl http://localhost:4566/_localstack/health
-   ```
-
-3. **Deployment Issues**
-   ```bash
-   # Check LocalStack logs
-   docker logs image-manager-localstack
-   
-   # Remove and redeploy
-   serverless remove --stage local
-   serverless deploy --stage local
-   ```
-
-4. **DynamoDB Table Not Found**
-   ```bash
-   # List tables in LocalStack
-   aws --endpoint-url=http://localhost:4566 dynamodb list-tables
-   ```
-
-5. **S3 Bucket Not Found**
-   ```bash
-   # List buckets in LocalStack
-   aws --endpoint-url=http://localhost:4566 s3 ls
-   ```
 
 ### Debug Mode
 ```bash
@@ -217,62 +170,12 @@ image-manager-service/
 DEBUG=1 docker-compose up
 
 # Enable Serverless debug
-SLS_DEBUG=* serverless deploy --stage local
+SLS_DEBUG=* npx serverless deploy --stage local
 ```
 
 ## Testing
-
-### Run Unit Tests
-```bash
-pytest tests/unit/ -v
-```
-
 ### Run Integration Tests
 ```bash
 python test_local.py
 ```
 
-### Test Coverage
-```bash
-pytest --cov=src tests/
-```
-
-## Production Deployment
-
-To deploy to real AWS:
-
-1. Configure AWS credentials:
-```bash
-aws configure
-```
-
-2. Deploy to AWS:
-```bash
-serverless deploy --stage prod
-```
-
-3. Update environment variables as needed for production.
-
-## Security Notes
-
-- In production, implement proper authentication/authorization
-- Use IAM roles with minimal required permissions
-- Enable S3 bucket encryption
-- Consider VPC configuration for enhanced security
-- Implement rate limiting and input validation
-
-## Performance Considerations
-
-- Lambda cold starts: Consider using provisioned concurrency for high-traffic scenarios
-- DynamoDB: Monitor read/write capacity and enable auto-scaling
-- S3: Use CloudFront for global distribution of images
-- Consider implementing image resizing/thumbnails for better performance
-
-## Next Steps
-
-1. Add authentication (Cognito/JWT)
-2. Implement image processing (thumbnails, compression)
-3. Add CloudWatch monitoring and alerts
-4. Implement batch operations
-5. Add image metadata extraction (EXIF data)
-6. Consider implementing CDN integration

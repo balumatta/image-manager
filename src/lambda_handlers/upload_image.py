@@ -5,6 +5,8 @@ import uuid
 import logging
 from typing import Dict
 
+from botocore.exceptions import ValidationError
+
 from src.constants import MONTY_CLOUD_IMAGES_BUCKET_NAME, DYNAMO_IMAGE_TABLE_NAME
 from src.models.image_metadata import ImageMetadata
 from src.helpers.aws.s3_service import S3Service
@@ -43,11 +45,7 @@ def lambda_handler(event, context):
         headers = event.get('headers', {})
 
         # Validate request
-        validation_result = validate_upload_request(body)
-        if not validation_result['valid']:
-            logger.warning("Upload validation failed",
-                           extra={'error': validation_result['message'], 'request_id': context.aws_request_id})
-            return create_error_response(400, validation_result['message'])
+        validate_upload_request(body)
 
         # Extract data from request
         filename = body['filename']
@@ -129,9 +127,10 @@ def lambda_handler(event, context):
             message="Image uploaded successfully"
         )
 
-    except json.JSONDecodeError as e:
-        logger.error("JSON decode error", extra={'error': str(e), 'request_id': context.aws_request_id})
-        return create_error_response(400, "Invalid JSON in request body")
+    except ValueError as e:
+        logger.warning("Upload validation failed",
+                       extra={'error': str(e), 'request_id': context.aws_request_id})
+        return create_error_response(400, str(e))
 
     except Exception as e:
         logger.error("Unexpected error in upload handler",
@@ -139,40 +138,33 @@ def lambda_handler(event, context):
         return create_error_response(500, f"Something went wrong while uploading the image. Reason: {str(e)}")
 
 
-def validate_upload_request(body: Dict) -> Dict[str, any]:
+def validate_upload_request(body: Dict):
     """Validate image upload request"""
     try:
         required_fields = ['filename', 'file_data', 'user_id']
         missing_fields = [field for field in required_fields if field not in body]
         if missing_fields:
-            raise ValueError(f'Missing required fields: {", ".join(missing_fields)}')
+            raise Exception(f'Missing required fields: {", ".join(missing_fields)}')
 
         # Validate file data is base64 encoded
         file_data = body['file_data']
-        try:
-            import base64
-            base64.b64decode(file_data, validate=True)
-        except Exception:
-            raise ValueError('Invalid file_data format. Must be base64 encoded')
+        import base64
+        base64.b64decode(file_data, validate=True)
 
         # Validate file extension
         filename = body['filename']
         allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
         if not any(filename.lower().endswith(ext) for ext in allowed_extensions):
-            raise ValueError(f'File extension not allowed. Allowed: {", ".join(allowed_extensions)}')
+            raise Exception(f'File extension not allowed. Allowed: {", ".join(allowed_extensions)}')
 
         # Validate file size (approximate from base64)
         file_size = len(base64.b64decode(file_data))
         max_size = 10 * 1024 * 1024  # 10MB
         if file_size > max_size:
-            raise ValueError(f'File size ({file_size} bytes) exceeds maximum allowed size ({max_size} bytes)')
+            raise Exception(f'File size ({file_size} bytes) exceeds maximum allowed size ({max_size} bytes)')
 
-        return {'valid': True}
     except Exception as e:
-        return {
-            'valid': False,
-            'message': str(e)
-        }
+        raise ValueError(f'{str(e)}')
 
 
 def get_content_type_from_filename(filename: str) -> str:

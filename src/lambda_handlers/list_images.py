@@ -30,11 +30,7 @@ def lambda_handler(event, context):
         user_id = query_params.get('user_id')
 
         # Validate request parameters
-        validation_result = validate_list_request(query_params)
-        if not validation_result['valid']:
-            logger.warning("List request validation failed",
-                           extra={'error': validation_result['message'], 'request_id': context.aws_request_id})
-            return create_error_response(400, validation_result['message'])
+        validate_list_request(query_params)
 
         # Extract parameters
         limit = int(query_params.get('limit', 20))
@@ -98,39 +94,14 @@ def lambda_handler(event, context):
         return create_error_response(500, f"Internal server error: {str(e)}")
 
 
-def validate_list_request(query_params: Dict) -> Dict[str, any]:
+def validate_list_request(query_params: Dict):
     """Validate list images request parameters"""
-
-    # Validate limit parameter
-    limit = query_params.get('limit')
-    if limit:
-        try:
+    try:
+        # Validate limit parameter
+        limit = query_params.get('limit')
+        if limit:
             limit = int(limit)
             if limit < 1 or limit > 100:
-                return {
-                    'valid': False,
-                    'message': 'limit must be between 1 and 100'
-                }
-        except ValueError:
-            return {'valid': False, 'message': 'limit must be a valid integer'}
-
-    # Validate date_from and date_to
-    date_from = query_params.get('date_from')
-    date_to = query_params.get('date_to')
-
-    if date_from:
-        try:
-            date_from = int(date_from)
-        except ValueError:
-            return {'valid': False, 'message': 'date_from must be a valid timestamp'}
-
-    if date_to:
-        try:
-            date_to = int(date_to)
-        except ValueError:
-            return {'valid': False, 'message': 'date_to must be a valid timestamp'}
-
-    if date_from and date_to and date_from > date_to:
-        return {'valid': False, 'message': 'date_from cannot be greater than date_to'}
-
-    return {'valid': True}
+                raise Exception('limit must be between 1 and 100')
+    except Exception as e:
+        raise ValueError(f'{str(e)}')

@@ -54,7 +54,7 @@ provider:
 
 functions:
   uploadImage:
-    handler: src.handlers.upload_image.lambda_handler
+    handler: src.lambda_handlers.upload_image.lambda_handler
     events:
       - http:
           path: images
@@ -62,7 +62,7 @@ functions:
           cors: true
 
   listImages:
-    handler: src.handlers.list_images.lambda_handler
+    handler: src.lambda_handlers.list_images.lambda_handler
     events:
       - http:
           path: images
@@ -70,7 +70,7 @@ functions:
           cors: true
 
   getImage:
-    handler: src.handlers.get_image.lambda_handler
+    handler: src.lambda_handlers.get_image.lambda_handler
     events:
       - http:
           path: images/{image_id}
@@ -78,7 +78,7 @@ functions:
           cors: true
 
   deleteImage:
-    handler: src.handlers.delete_image.lambda_handler
+    handler: src.lambda_handlers.delete_image.lambda_handler
     events:
       - http:
           path: images/{image_id}
