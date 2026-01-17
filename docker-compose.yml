@@ -14,6 +14,8 @@ services:
       - KINESIS_ERROR_PROBABILITY=0.0
       - KINESIS_STREAM_NAME=kinesis-stream
       - KINESIS_PROVIDER=kinesalite
+      - LAMBDA_EXECUTOR=docker
+      - LAMBDA_DOCKER_NETWORK=bridge
     image: localstack/localstack:latest
     ports:
       - "4566:4566"

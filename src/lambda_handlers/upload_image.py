@@ -30,6 +30,7 @@ def lambda_handler(event, context):
     }
     """
 
+    print(f"Upload image handler started - Request ID: {context.aws_request_id}")
     logger.info("Upload image handler started", extra={'request_id': context.aws_request_id})
 
     try:

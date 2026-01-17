@@ -2,20 +2,7 @@ service: image-manager-service
 
 frameworkVersion: '3'
 
-provider:
-  name: aws
-  runtime: python3.9
-  stage: ${opt:stage, 'dev'}
-  region: us-east-1
-  environment:
-    STAGE: ${self:provider.stage}
-  # Use S3 for deployment artifacts when package is large
-  deploymentBucket:
-    name: ${self:service}-deployments-${self:provider.stage}
-    blockPublicAccess: true
-    versioning: true
-    serverSideEncryption: AES256
-  # Exclude unnecessary files from deployment package
+package:
   patterns:
     - '!tests/**'
     - '!.git/**'
@@ -26,6 +13,14 @@ provider:
     - '!.gitignore'
     - '!docker-compose.yml'
     - '!infrastructure/**'
+
+provider:
+  name: aws
+  runtime: python3.9
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  environment:
+    STAGE: ${self:provider.stage}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -55,6 +50,8 @@ provider:
 functions:
   uploadImage:
     handler: src.lambda_handlers.upload_image.lambda_handler
+    timeout: 300
+    logRetentionInDays: 14
     events:
       - http:
           path: images
@@ -87,23 +84,6 @@ functions:
 
 resources:
   Resources:
-    # Deployment bucket for Lambda artifacts
-    DeploymentBucket:
-      Type: AWS::S3::Bucket
-      Properties:
-        BucketName: ${self:service}-deployments-${self:provider.stage}
-        PublicAccessBlockConfiguration:
-          BlockPublicAcls: true
-          BlockPublicPolicy: true
-          IgnorePublicAcls: true
-          RestrictPublicBuckets: true
-        VersioningConfiguration:
-          Status: Enabled
-        BucketEncryption:
-          ServerSideEncryptionConfiguration:
-            - ServerSideEncryptionByDefault:
-                SSEAlgorithm: AES256
-
     ImagesTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -161,17 +141,9 @@ custom:
     noDeps:
       - boto3
       - botocore
-    useStaticCache: false
-    useDownloadCache: false
-    # Force upload to S3 for large packages
-    zip: true
-    # Remove additional unnecessary files
-    invalidateCaches: true
   localstack:
     stages:
       - local
     host: http://localhost
     edgePort: 4566
     autostart: true
-    # Use deployment bucket for LocalStack too
-    deploymentBucket: ${self:service}-deployments-${self:provider.stage}
